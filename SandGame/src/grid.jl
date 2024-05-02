@@ -33,7 +33,7 @@ function on_mouse_move(g::Game, pos)
     mouse.x = pos[1]
     mouse.y = pos[2]
     if isDrawing
-        push!(elements, Element(pos[1], pos[2], 5, (0.0, 0.0)))
+        push!(elements, Element(Int(round(pos[1]/2)), Int(round(pos[2]/2)), 5, (0.0, 0.0)))
     end
 end
 
@@ -65,9 +65,7 @@ function particle_collision()
 end
 
 function on_mouse_down(g::Game, pos, button)
-
     global isDrawing = true
-
 end
  
 
