@@ -31,6 +31,8 @@ sand = Element(Sand, RGB(1,1,0))  # Yellow
 water = Element(Water, RGB(0,0,1))  # Blue
 air = Element(Nothing, RGB(1,1,1))  # White
 
+const selected_element = water
+
 elements_grid = [Cell(air) for _ in 1:(GRID_WIDTH * GRID_HEIGHT)]
 
 function draw(g::Game) 
@@ -80,11 +82,11 @@ end
 
 
 # Mouse event handlers
+    # this is goofy as hell and will be changed soon
+
 function on_mouse_down(g::Game, pos, button)
     global previous_mouse_pos = (Int(round(pos[1] / MOUSE_SCALE)), Int(round(pos[2] / MOUSE_SCALE)))
     global is_mouse_down = true
-    # Set water immediately on mouse down
-    set_element(previous_mouse_pos[1], previous_mouse_pos[2], water)
 end
 
 function on_mouse_move(g::Game, pos)
@@ -92,12 +94,12 @@ function on_mouse_move(g::Game, pos)
 
     if is_mouse_down
         x,y = current_mouse_pos
-        if x in 1:GRID_WIDTH && y in 1:GRID_HEIGHT
+        if x in 1:GRID_WIDTH && y in 1:GRID_HEIGHT && previous_mouse_pos[1] in 1:GRID_WIDTH && previous_mouse_pos[2] in 1:GRID_HEIGHT
             line_points = line_between_points(previous_mouse_pos..., x, y)
             for (px, py) in line_points
                 circle_points = points_on_circle(px,py,5)
                 for (x2,y2) in circle_points
-                    set_element(x2,y2, water)
+                    set_element(x2,y2, selected_element)
                 end
             end
             global previous_mouse_pos = (x, y)
@@ -109,12 +111,10 @@ function on_mouse_up(g::Game, pos, button)
     global is_mouse_down = false
 end
 
-# Function to describe an element
 function describe(element::Element)
     println("Element: $(element.type), Color: $(element.color)")
 end
 
-# Function to set an element at a specific grid position
 function set_element(x::Int, y::Int, element::Element)
     index = GRID_WIDTH * (y - 1) + x
     elements_grid[index] = Cell(element)
@@ -125,7 +125,6 @@ function get_element(x::Int, y::Int)
 end
 
 # Some mathematical functions
-# Function to generate a line between two points
 function line_between_points(x1::Int, y1::Int, x2::Int, y2::Int)
     points = [(x1,y1)]
     dx = abs(x2 - x1)
