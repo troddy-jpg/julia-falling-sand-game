@@ -11,11 +11,11 @@ global current_mouse_pos = (0, 0)
 using Colors
 
 const HEIGHT = 900
-const WIDTH = 1200
+const WIDTH = 900
 const GRID_WIDTH = 300
 const GRID_HEIGHT = 300
-const CELL_SIZE = 5
-const MOUSE_SCALE = CELL_SIZE / 2
+const CELL_SIZE = 3
+const MOUSE_SCALE = CELL_SIZE
 
 @enum ElementType Sand Water Stone Nothing
 struct Element
@@ -27,31 +27,33 @@ struct Cell
     element::Element
 end
 
-sand = Element(Sand, RGB(1,1,0))  # Yellow
-water = Element(Water, RGB(0,0,1))  # Blue
-air = Element(Nothing, RGB(1,1,1))  # White
+sand = Element(Sand, RGB(1, 1, 0))  # Yellow
+water = Element(Water, RGB(0, 0, 1))  # Blue
+air = Element(Nothing, RGB(0, 0, 0))  # Black (to match our other game)
 
-const selected_element = water
+global selected_element = sand
 
-elements_grid = [Cell(air) for _ in 1:(GRID_WIDTH * GRID_HEIGHT)]
+elements_grid = [Cell(air) for _ in 1:(GRID_WIDTH*GRID_HEIGHT)]
 
-function draw(g::Game) 
+function draw(g::Game)
     # this loop draws every pixel and then updates it, top to bottom
     for x in 1:GRID_WIDTH
         for y in reverse(1:GRID_HEIGHT)
             cell = get_element(x, y)
             posX, posY = (x - 1) * CELL_SIZE, (y - 1) * CELL_SIZE
             draw(Rect(posX, posY, CELL_SIZE, CELL_SIZE), cell.element.color, fill=true)
-            step(cell.element.type,x,y)
+            step(cell.element.type, x, y)
         end
     end
-    draw(Circle(Int(round(previous_mouse_pos[1] * CELL_SIZE)), Int(round(previous_mouse_pos[2] * CELL_SIZE)) , 20),RGB(1,0,0))
+    draw(Circle(Int(round(previous_mouse_pos[1] * CELL_SIZE)), Int(round(previous_mouse_pos[2] * CELL_SIZE)), 20), RGB(1, 0, 0))
 
 end
 
 function step(element_type, x, y)
     if element_type == Water
-        step_water(x,y,8)
+        step_water(x, y, 8)
+    elseif element_type == Sand
+        step_sand(x, y)
     end
 end
 
@@ -61,28 +63,60 @@ function step_water(x, y, dispersion_rate)
         if below.element == air
             set_element(x, y, air)
             set_element(x, y + 1, water)
-            return 
+            return
         end
     end
-    direction = rand([-1, 1]) 
+    direction = rand([-1, 1])
     for i in 1:dispersion_rate
         new_x = x + direction * i
-        if new_x >= 1 && new_x <= GRID_WIDTH  
+        if new_x >= 1 && new_x <= GRID_WIDTH
             target = get_element(new_x, y)
             if target.element == air
                 set_element(new_x, y, water)
                 set_element(x, y, air)
-                break  
+                break
             end
         else
-            break  
+            break
         end
     end
 end
 
+function step_sand(x, y)
+    if y < GRID_HEIGHT - 1
+        below = get_element(x, y + 1)
+        if below.element == air
+            set_element(x, y, air)
+            set_element(x, y + 1, sand)
+            return
+        elseif below.element == water
+            # Swap water with sand
+            set_element(x, y, water)
+            set_element(x, y + 1, sand)
+            return
+        end
+    end
+
+    options = []
+    if y < GRID_HEIGHT - 1 && x > 1 && get_element(x - 1, y + 1).element == air
+        push!(options, (x - 1, y + 1))
+    end
+    if y < GRID_HEIGHT - 1 && x < GRID_WIDTH && get_element(x + 1, y + 1).element == air
+        push!(options, (x + 1, y + 1))
+    end
+
+    if !isempty(options)
+        idx = rand(1:length(options))
+        new_x, new_y = options[idx]
+        set_element(x, y, air)
+        set_element(new_x, new_y, sand)
+    end
+end
+
+
 
 # Mouse event handlers
-    # this is goofy as hell and will be changed soon
+# this is goofy as hell and will be changed soon
 
 function on_mouse_down(g::Game, pos, button)
     global previous_mouse_pos = (Int(round(pos[1] / MOUSE_SCALE)), Int(round(pos[2] / MOUSE_SCALE)))
@@ -93,17 +127,28 @@ function on_mouse_move(g::Game, pos)
     current_mouse_pos = (Int(round(pos[1] / MOUSE_SCALE)), Int(round(pos[2] / MOUSE_SCALE)))
 
     if is_mouse_down
-        x,y = current_mouse_pos
+        x, y = current_mouse_pos
         if x in 1:GRID_WIDTH && y in 1:GRID_HEIGHT && previous_mouse_pos[1] in 1:GRID_WIDTH && previous_mouse_pos[2] in 1:GRID_HEIGHT
             line_points = line_between_points(previous_mouse_pos..., x, y)
             for (px, py) in line_points
-                circle_points = points_on_circle(px,py,5)
-                for (x2,y2) in circle_points
-                    set_element(x2,y2, selected_element)
+                circle_points = points_on_circle(px, py, 5)
+                for (x2, y2) in circle_points
+                    set_element(x2, y2, selected_element)
                 end
             end
             global previous_mouse_pos = (x, y)
         end
+    end
+end
+
+function on_key_down(g::Game, key)
+    global selected_element
+    if key == Keys.S
+        selected_element = sand
+    elseif key == Keys.W
+        selected_element = water
+    elseif key == Keys.A
+        selected_element = air
     end
 end
 
@@ -121,12 +166,12 @@ function set_element(x::Int, y::Int, element::Element)
 end
 
 function get_element(x::Int, y::Int)
-    elements_grid[GRID_WIDTH * (y - 1) + x]
+    elements_grid[GRID_WIDTH*(y-1)+x]
 end
 
 # Some mathematical functions
 function line_between_points(x1::Int, y1::Int, x2::Int, y2::Int)
-    points = [(x1,y1)]
+    points = [(x1, y1)]
     dx = abs(x2 - x1)
     dy = -abs(y2 - y1)
     sx = x1 < x2 ? 1 : -1
